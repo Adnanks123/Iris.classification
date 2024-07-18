@@ -1,0 +1,631 @@
+<html>
+<head>
+<title>__init__.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #7a7e85;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #6aab73;}
+.s5 { color: #5f826b; font-style: italic;}
+.s6 { color: #2aacb8;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+__init__.py</font>
+</center></td></tr></table>
+<pre><span class="s0"># Copyright 2016-2018 Julien Danjou</span>
+<span class="s0"># Copyright 2017 Elisey Zanko</span>
+<span class="s0"># Copyright 2016 Étienne Bersac</span>
+<span class="s0"># Copyright 2016 Joshua Harlow</span>
+<span class="s0"># Copyright 2013-2014 Ray Holder</span>
+<span class="s0">#</span>
+<span class="s0"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="s0"># you may not use this file except in compliance with the License.</span>
+<span class="s0"># You may obtain a copy of the License at</span>
+<span class="s0">#</span>
+<span class="s0"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="s0">#</span>
+<span class="s0"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="s0"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="s0"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="s0"># See the License for the specific language governing permissions and</span>
+<span class="s0"># limitations under the License.</span>
+
+
+<span class="s2">import </span><span class="s1">functools</span>
+<span class="s2">import </span><span class="s1">sys</span>
+<span class="s2">import </span><span class="s1">threading</span>
+<span class="s2">import </span><span class="s1">time</span>
+<span class="s2">import </span><span class="s1">typing </span><span class="s2">as </span><span class="s1">t</span>
+<span class="s2">import </span><span class="s1">warnings</span>
+<span class="s2">from </span><span class="s1">abc </span><span class="s2">import </span><span class="s1">ABC</span><span class="s3">, </span><span class="s1">abstractmethod</span>
+<span class="s2">from </span><span class="s1">concurrent </span><span class="s2">import </span><span class="s1">futures</span>
+<span class="s2">from </span><span class="s1">inspect </span><span class="s2">import </span><span class="s1">iscoroutinefunction</span>
+
+<span class="s0"># Import all built-in retry strategies for easier usage.</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_base  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_all  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_always  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_any  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_if_exception  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_if_exception_type  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_if_exception_cause_type  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_if_not_exception_type  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_if_not_result  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_if_result  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_never  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_unless_exception_type  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_if_exception_message  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">retry_if_not_exception_message  </span><span class="s0"># noqa</span>
+
+<span class="s0"># Import all nap strategies for easier usage.</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">nap </span><span class="s2">import </span><span class="s1">sleep  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">nap </span><span class="s2">import </span><span class="s1">sleep_using_event  </span><span class="s0"># noqa</span>
+
+<span class="s0"># Import all built-in stop strategies for easier usage.</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">stop </span><span class="s2">import </span><span class="s1">stop_after_attempt  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">stop </span><span class="s2">import </span><span class="s1">stop_after_delay  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">stop </span><span class="s2">import </span><span class="s1">stop_all  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">stop </span><span class="s2">import </span><span class="s1">stop_any  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">stop </span><span class="s2">import </span><span class="s1">stop_never  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">stop </span><span class="s2">import </span><span class="s1">stop_when_event_set  </span><span class="s0"># noqa</span>
+
+<span class="s0"># Import all built-in wait strategies for easier usage.</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">wait </span><span class="s2">import </span><span class="s1">wait_chain  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">wait </span><span class="s2">import </span><span class="s1">wait_combine  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">wait </span><span class="s2">import </span><span class="s1">wait_exponential  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">wait </span><span class="s2">import </span><span class="s1">wait_fixed  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">wait </span><span class="s2">import </span><span class="s1">wait_incrementing  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">wait </span><span class="s2">import </span><span class="s1">wait_none  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">wait </span><span class="s2">import </span><span class="s1">wait_random  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">wait </span><span class="s2">import </span><span class="s1">wait_random_exponential  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">wait </span><span class="s2">import </span><span class="s1">wait_random_exponential </span><span class="s2">as </span><span class="s1">wait_full_jitter  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">wait </span><span class="s2">import </span><span class="s1">wait_exponential_jitter  </span><span class="s0"># noqa</span>
+
+<span class="s0"># Import all built-in before strategies for easier usage.</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">before </span><span class="s2">import </span><span class="s1">before_log  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">before </span><span class="s2">import </span><span class="s1">before_nothing  </span><span class="s0"># noqa</span>
+
+<span class="s0"># Import all built-in after strategies for easier usage.</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">after </span><span class="s2">import </span><span class="s1">after_log  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">after </span><span class="s2">import </span><span class="s1">after_nothing  </span><span class="s0"># noqa</span>
+
+<span class="s0"># Import all built-in after strategies for easier usage.</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">before_sleep </span><span class="s2">import </span><span class="s1">before_sleep_log  </span><span class="s0"># noqa</span>
+<span class="s2">from </span><span class="s3">.</span><span class="s1">before_sleep </span><span class="s2">import </span><span class="s1">before_sleep_nothing  </span><span class="s0"># noqa</span>
+
+<span class="s0"># Replace a conditional import with a hard-coded None so that pip does</span>
+<span class="s0"># not attempt to use tornado even if it is present in the environment.</span>
+<span class="s0"># If tornado is non-None, tenacity will attempt to execute some code</span>
+<span class="s0"># that is sensitive to the version of tornado, which could break pip</span>
+<span class="s0"># if an old version is found.</span>
+<span class="s1">tornado </span><span class="s3">= </span><span class="s2">None  </span><span class="s0"># type: ignore</span>
+
+<span class="s2">if </span><span class="s1">t</span><span class="s3">.</span><span class="s1">TYPE_CHECKING</span><span class="s3">:</span>
+    <span class="s2">import </span><span class="s1">types</span>
+
+    <span class="s2">from </span><span class="s3">.</span><span class="s1">retry </span><span class="s2">import </span><span class="s1">RetryBaseT</span>
+    <span class="s2">from </span><span class="s3">.</span><span class="s1">stop </span><span class="s2">import </span><span class="s1">StopBaseT</span>
+    <span class="s2">from </span><span class="s3">.</span><span class="s1">wait </span><span class="s2">import </span><span class="s1">WaitBaseT</span>
+
+
+<span class="s1">WrappedFnReturnT </span><span class="s3">= </span><span class="s1">t</span><span class="s3">.</span><span class="s1">TypeVar</span><span class="s3">(</span><span class="s4">&quot;WrappedFnReturnT&quot;</span><span class="s3">)</span>
+<span class="s1">WrappedFn </span><span class="s3">= </span><span class="s1">t</span><span class="s3">.</span><span class="s1">TypeVar</span><span class="s3">(</span><span class="s4">&quot;WrappedFn&quot;</span><span class="s3">, </span><span class="s1">bound</span><span class="s3">=</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[..., </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">])</span>
+
+
+<span class="s2">class </span><span class="s1">TryAgain</span><span class="s3">(</span><span class="s1">Exception</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot;Always retry the executed function when raised.&quot;&quot;&quot;</span>
+
+
+<span class="s1">NO_RESULT </span><span class="s3">= </span><span class="s1">object</span><span class="s3">()</span>
+
+
+<span class="s2">class </span><span class="s1">DoAttempt</span><span class="s3">:</span>
+    <span class="s2">pass</span>
+
+
+<span class="s2">class </span><span class="s1">DoSleep</span><span class="s3">(</span><span class="s1">float</span><span class="s3">):</span>
+    <span class="s2">pass</span>
+
+
+<span class="s2">class </span><span class="s1">BaseAction</span><span class="s3">:</span>
+    <span class="s5">&quot;&quot;&quot;Base class for representing actions to take by retry object. 
+ 
+    Concrete implementations must define: 
+    - __init__: to initialize all necessary fields 
+    - REPR_FIELDS: class variable specifying attributes to include in repr(self) 
+    - NAME: for identification in retry object methods and callbacks 
+    &quot;&quot;&quot;</span>
+
+    <span class="s1">REPR_FIELDS</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Sequence</span><span class="s3">[</span><span class="s1">str</span><span class="s3">] = ()</span>
+    <span class="s1">NAME</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">str</span><span class="s3">] = </span><span class="s2">None</span>
+
+    <span class="s2">def </span><span class="s1">__repr__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; str</span><span class="s3">:</span>
+        <span class="s1">state_str </span><span class="s3">= </span><span class="s4">&quot;, &quot;</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s4">f&quot;</span><span class="s2">{</span><span class="s1">field</span><span class="s2">}</span><span class="s4">=</span><span class="s2">{</span><span class="s1">getattr</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">field</span><span class="s3">)</span><span class="s2">!r}</span><span class="s4">&quot; </span><span class="s2">for </span><span class="s1">field </span><span class="s2">in </span><span class="s1">self</span><span class="s3">.</span><span class="s1">REPR_FIELDS</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s4">f&quot;</span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">__class__</span><span class="s3">.</span><span class="s1">__name__</span><span class="s2">}</span><span class="s4">(</span><span class="s2">{</span><span class="s1">state_str</span><span class="s2">}</span><span class="s4">)&quot;</span>
+
+    <span class="s2">def </span><span class="s1">__str__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; str</span><span class="s3">:</span>
+        <span class="s2">return </span><span class="s1">repr</span><span class="s3">(</span><span class="s1">self</span><span class="s3">)</span>
+
+
+<span class="s2">class </span><span class="s1">RetryAction</span><span class="s3">(</span><span class="s1">BaseAction</span><span class="s3">):</span>
+    <span class="s1">REPR_FIELDS </span><span class="s3">= (</span><span class="s4">&quot;sleep&quot;</span><span class="s3">,)</span>
+    <span class="s1">NAME </span><span class="s3">= </span><span class="s4">&quot;retry&quot;</span>
+
+    <span class="s2">def </span><span class="s1">__init__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">sleep</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">SupportsFloat</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">sleep </span><span class="s3">= </span><span class="s1">float</span><span class="s3">(</span><span class="s1">sleep</span><span class="s3">)</span>
+
+
+<span class="s1">_unset </span><span class="s3">= </span><span class="s1">object</span><span class="s3">()</span>
+
+
+<span class="s2">def </span><span class="s1">_first_set</span><span class="s3">(</span><span class="s1">first</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">, </span><span class="s1">object</span><span class="s3">], </span><span class="s1">second</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">) </span><span class="s1">-&gt; t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">:</span>
+    <span class="s2">return </span><span class="s1">second </span><span class="s2">if </span><span class="s1">first </span><span class="s2">is </span><span class="s1">_unset </span><span class="s2">else </span><span class="s1">first</span>
+
+
+<span class="s2">class </span><span class="s1">RetryError</span><span class="s3">(</span><span class="s1">Exception</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot;Encapsulates the last attempt instance right before giving up.&quot;&quot;&quot;</span>
+
+    <span class="s2">def </span><span class="s1">__init__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">last_attempt</span><span class="s3">: </span><span class="s4">&quot;Future&quot;</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">last_attempt </span><span class="s3">= </span><span class="s1">last_attempt</span>
+        <span class="s1">super</span><span class="s3">().</span><span class="s1">__init__</span><span class="s3">(</span><span class="s1">last_attempt</span><span class="s3">)</span>
+
+    <span class="s2">def </span><span class="s1">reraise</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s4">&quot;t.NoReturn&quot;</span><span class="s3">:</span>
+        <span class="s2">if </span><span class="s1">self</span><span class="s3">.</span><span class="s1">last_attempt</span><span class="s3">.</span><span class="s1">failed</span><span class="s3">:</span>
+            <span class="s2">raise </span><span class="s1">self</span><span class="s3">.</span><span class="s1">last_attempt</span><span class="s3">.</span><span class="s1">result</span><span class="s3">()</span>
+        <span class="s2">raise </span><span class="s1">self</span>
+
+    <span class="s2">def </span><span class="s1">__str__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; str</span><span class="s3">:</span>
+        <span class="s2">return </span><span class="s4">f&quot;</span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">__class__</span><span class="s3">.</span><span class="s1">__name__</span><span class="s2">}</span><span class="s4">[</span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">last_attempt</span><span class="s2">}</span><span class="s4">]&quot;</span>
+
+
+<span class="s2">class </span><span class="s1">AttemptManager</span><span class="s3">:</span>
+    <span class="s5">&quot;&quot;&quot;Manage attempt context.&quot;&quot;&quot;</span>
+
+    <span class="s2">def </span><span class="s1">__init__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">retry_state</span><span class="s3">: </span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">):</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">retry_state </span><span class="s3">= </span><span class="s1">retry_state</span>
+
+    <span class="s2">def </span><span class="s1">__enter__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+        <span class="s2">pass</span>
+
+    <span class="s2">def </span><span class="s1">__exit__</span><span class="s3">(</span>
+        <span class="s1">self</span><span class="s3">,</span>
+        <span class="s1">exc_type</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Type</span><span class="s3">[</span><span class="s1">BaseException</span><span class="s3">]],</span>
+        <span class="s1">exc_value</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">BaseException</span><span class="s3">],</span>
+        <span class="s1">traceback</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s4">&quot;types.TracebackType&quot;</span><span class="s3">],</span>
+    <span class="s3">) </span><span class="s1">-&gt; t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">bool</span><span class="s3">]:</span>
+        <span class="s2">if </span><span class="s1">exc_type </span><span class="s2">is not None and </span><span class="s1">exc_value </span><span class="s2">is not None</span><span class="s3">:</span>
+            <span class="s1">self</span><span class="s3">.</span><span class="s1">retry_state</span><span class="s3">.</span><span class="s1">set_exception</span><span class="s3">((</span><span class="s1">exc_type</span><span class="s3">, </span><span class="s1">exc_value</span><span class="s3">, </span><span class="s1">traceback</span><span class="s3">))</span>
+            <span class="s2">return True  </span><span class="s0"># Swallow exception.</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s0"># We don't have the result, actually.</span>
+            <span class="s1">self</span><span class="s3">.</span><span class="s1">retry_state</span><span class="s3">.</span><span class="s1">set_result</span><span class="s3">(</span><span class="s2">None</span><span class="s3">)</span>
+            <span class="s2">return None</span>
+
+
+<span class="s2">class </span><span class="s1">BaseRetrying</span><span class="s3">(</span><span class="s1">ABC</span><span class="s3">):</span>
+    <span class="s2">def </span><span class="s1">__init__</span><span class="s3">(</span>
+        <span class="s1">self</span><span class="s3">,</span>
+        <span class="s1">sleep</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s1">int</span><span class="s3">, </span><span class="s1">float</span><span class="s3">]], </span><span class="s2">None</span><span class="s3">] = </span><span class="s1">sleep</span><span class="s3">,</span>
+        <span class="s1">stop</span><span class="s3">: </span><span class="s4">&quot;StopBaseT&quot; </span><span class="s3">= </span><span class="s1">stop_never</span><span class="s3">,</span>
+        <span class="s1">wait</span><span class="s3">: </span><span class="s4">&quot;WaitBaseT&quot; </span><span class="s3">= </span><span class="s1">wait_none</span><span class="s3">(),</span>
+        <span class="s1">retry</span><span class="s3">: </span><span class="s4">&quot;RetryBaseT&quot; </span><span class="s3">= </span><span class="s1">retry_if_exception_type</span><span class="s3">(),</span>
+        <span class="s1">before</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">], </span><span class="s2">None</span><span class="s3">] = </span><span class="s1">before_nothing</span><span class="s3">,</span>
+        <span class="s1">after</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">], </span><span class="s2">None</span><span class="s3">] = </span><span class="s1">after_nothing</span><span class="s3">,</span>
+        <span class="s1">before_sleep</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">], </span><span class="s2">None</span><span class="s3">]] = </span><span class="s2">None</span><span class="s3">,</span>
+        <span class="s1">reraise</span><span class="s3">: </span><span class="s1">bool </span><span class="s3">= </span><span class="s2">False</span><span class="s3">,</span>
+        <span class="s1">retry_error_cls</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Type</span><span class="s3">[</span><span class="s1">RetryError</span><span class="s3">] = </span><span class="s1">RetryError</span><span class="s3">,</span>
+        <span class="s1">retry_error_callback</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">], </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">]] = </span><span class="s2">None</span><span class="s3">,</span>
+    <span class="s3">):</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">sleep </span><span class="s3">= </span><span class="s1">sleep</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">stop </span><span class="s3">= </span><span class="s1">stop</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">wait </span><span class="s3">= </span><span class="s1">wait</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">retry </span><span class="s3">= </span><span class="s1">retry</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">before </span><span class="s3">= </span><span class="s1">before</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">after </span><span class="s3">= </span><span class="s1">after</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">before_sleep </span><span class="s3">= </span><span class="s1">before_sleep</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">reraise </span><span class="s3">= </span><span class="s1">reraise</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">_local </span><span class="s3">= </span><span class="s1">threading</span><span class="s3">.</span><span class="s1">local</span><span class="s3">()</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">retry_error_cls </span><span class="s3">= </span><span class="s1">retry_error_cls</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">retry_error_callback </span><span class="s3">= </span><span class="s1">retry_error_callback</span>
+
+    <span class="s2">def </span><span class="s1">copy</span><span class="s3">(</span>
+        <span class="s1">self</span><span class="s3">,</span>
+        <span class="s1">sleep</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s1">int</span><span class="s3">, </span><span class="s1">float</span><span class="s3">]], </span><span class="s2">None</span><span class="s3">], </span><span class="s1">object</span><span class="s3">] = </span><span class="s1">_unset</span><span class="s3">,</span>
+        <span class="s1">stop</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s4">&quot;StopBaseT&quot;</span><span class="s3">, </span><span class="s1">object</span><span class="s3">] = </span><span class="s1">_unset</span><span class="s3">,</span>
+        <span class="s1">wait</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s4">&quot;WaitBaseT&quot;</span><span class="s3">, </span><span class="s1">object</span><span class="s3">] = </span><span class="s1">_unset</span><span class="s3">,</span>
+        <span class="s1">retry</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s1">retry_base</span><span class="s3">, </span><span class="s1">object</span><span class="s3">] = </span><span class="s1">_unset</span><span class="s3">,</span>
+        <span class="s1">before</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">], </span><span class="s2">None</span><span class="s3">], </span><span class="s1">object</span><span class="s3">] = </span><span class="s1">_unset</span><span class="s3">,</span>
+        <span class="s1">after</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">], </span><span class="s2">None</span><span class="s3">], </span><span class="s1">object</span><span class="s3">] = </span><span class="s1">_unset</span><span class="s3">,</span>
+        <span class="s1">before_sleep</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">], </span><span class="s2">None</span><span class="s3">]], </span><span class="s1">object</span><span class="s3">] = </span><span class="s1">_unset</span><span class="s3">,</span>
+        <span class="s1">reraise</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s1">bool</span><span class="s3">, </span><span class="s1">object</span><span class="s3">] = </span><span class="s1">_unset</span><span class="s3">,</span>
+        <span class="s1">retry_error_cls</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Type</span><span class="s3">[</span><span class="s1">RetryError</span><span class="s3">], </span><span class="s1">object</span><span class="s3">] = </span><span class="s1">_unset</span><span class="s3">,</span>
+        <span class="s1">retry_error_callback</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">], </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">]], </span><span class="s1">object</span><span class="s3">] = </span><span class="s1">_unset</span><span class="s3">,</span>
+    <span class="s3">) </span><span class="s1">-&gt; </span><span class="s4">&quot;BaseRetrying&quot;</span><span class="s3">:</span>
+        <span class="s5">&quot;&quot;&quot;Copy this object with some parameters changed if needed.&quot;&quot;&quot;</span>
+        <span class="s2">return </span><span class="s1">self</span><span class="s3">.</span><span class="s1">__class__</span><span class="s3">(</span>
+            <span class="s1">sleep</span><span class="s3">=</span><span class="s1">_first_set</span><span class="s3">(</span><span class="s1">sleep</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">sleep</span><span class="s3">),</span>
+            <span class="s1">stop</span><span class="s3">=</span><span class="s1">_first_set</span><span class="s3">(</span><span class="s1">stop</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">stop</span><span class="s3">),</span>
+            <span class="s1">wait</span><span class="s3">=</span><span class="s1">_first_set</span><span class="s3">(</span><span class="s1">wait</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">wait</span><span class="s3">),</span>
+            <span class="s1">retry</span><span class="s3">=</span><span class="s1">_first_set</span><span class="s3">(</span><span class="s1">retry</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">retry</span><span class="s3">),</span>
+            <span class="s1">before</span><span class="s3">=</span><span class="s1">_first_set</span><span class="s3">(</span><span class="s1">before</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">before</span><span class="s3">),</span>
+            <span class="s1">after</span><span class="s3">=</span><span class="s1">_first_set</span><span class="s3">(</span><span class="s1">after</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">after</span><span class="s3">),</span>
+            <span class="s1">before_sleep</span><span class="s3">=</span><span class="s1">_first_set</span><span class="s3">(</span><span class="s1">before_sleep</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">before_sleep</span><span class="s3">),</span>
+            <span class="s1">reraise</span><span class="s3">=</span><span class="s1">_first_set</span><span class="s3">(</span><span class="s1">reraise</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">reraise</span><span class="s3">),</span>
+            <span class="s1">retry_error_cls</span><span class="s3">=</span><span class="s1">_first_set</span><span class="s3">(</span><span class="s1">retry_error_cls</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">retry_error_cls</span><span class="s3">),</span>
+            <span class="s1">retry_error_callback</span><span class="s3">=</span><span class="s1">_first_set</span><span class="s3">(</span><span class="s1">retry_error_callback</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">retry_error_callback</span><span class="s3">),</span>
+        <span class="s3">)</span>
+
+    <span class="s2">def </span><span class="s1">__repr__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; str</span><span class="s3">:</span>
+        <span class="s2">return </span><span class="s3">(</span>
+            <span class="s4">f&quot;&lt;</span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">__class__</span><span class="s3">.</span><span class="s1">__name__</span><span class="s2">} </span><span class="s4">object at 0x</span><span class="s2">{</span><span class="s1">id</span><span class="s3">(</span><span class="s1">self</span><span class="s3">)</span><span class="s2">:</span><span class="s4">x</span><span class="s2">} </span><span class="s4">(&quot;</span>
+            <span class="s4">f&quot;stop=</span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">stop</span><span class="s2">}</span><span class="s4">, &quot;</span>
+            <span class="s4">f&quot;wait=</span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">wait</span><span class="s2">}</span><span class="s4">, &quot;</span>
+            <span class="s4">f&quot;sleep=</span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">sleep</span><span class="s2">}</span><span class="s4">, &quot;</span>
+            <span class="s4">f&quot;retry=</span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">retry</span><span class="s2">}</span><span class="s4">, &quot;</span>
+            <span class="s4">f&quot;before=</span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">before</span><span class="s2">}</span><span class="s4">, &quot;</span>
+            <span class="s4">f&quot;after=</span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">after</span><span class="s2">}</span><span class="s4">)&gt;&quot;</span>
+        <span class="s3">)</span>
+
+    <span class="s3">@</span><span class="s1">property</span>
+    <span class="s2">def </span><span class="s1">statistics</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; t</span><span class="s3">.</span><span class="s1">Dict</span><span class="s3">[</span><span class="s1">str</span><span class="s3">, </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">]:</span>
+        <span class="s5">&quot;&quot;&quot;Return a dictionary of runtime statistics. 
+ 
+        This dictionary will be empty when the controller has never been 
+        ran. When it is running or has ran previously it should have (but 
+        may not) have useful and/or informational keys and values when 
+        running is underway and/or completed. 
+ 
+        .. warning:: The keys in this dictionary **should** be some what 
+                     stable (not changing), but there existence **may** 
+                     change between major releases as new statistics are 
+                     gathered or removed so before accessing keys ensure that 
+                     they actually exist and handle when they do not. 
+ 
+        .. note:: The values in this dictionary are local to the thread 
+                  running call (so if multiple threads share the same retrying 
+                  object - either directly or indirectly) they will each have 
+                  there own view of statistics they have collected (in the 
+                  future we may provide a way to aggregate the various 
+                  statistics from each thread). 
+        &quot;&quot;&quot;</span>
+        <span class="s2">try</span><span class="s3">:</span>
+            <span class="s2">return </span><span class="s1">self</span><span class="s3">.</span><span class="s1">_local</span><span class="s3">.</span><span class="s1">statistics  </span><span class="s0"># type: ignore[no-any-return]</span>
+        <span class="s2">except </span><span class="s1">AttributeError</span><span class="s3">:</span>
+            <span class="s1">self</span><span class="s3">.</span><span class="s1">_local</span><span class="s3">.</span><span class="s1">statistics </span><span class="s3">= </span><span class="s1">t</span><span class="s3">.</span><span class="s1">cast</span><span class="s3">(</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Dict</span><span class="s3">[</span><span class="s1">str</span><span class="s3">, </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">], {})</span>
+            <span class="s2">return </span><span class="s1">self</span><span class="s3">.</span><span class="s1">_local</span><span class="s3">.</span><span class="s1">statistics</span>
+
+    <span class="s2">def </span><span class="s1">wraps</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">f</span><span class="s3">: </span><span class="s1">WrappedFn</span><span class="s3">) </span><span class="s1">-&gt; WrappedFn</span><span class="s3">:</span>
+        <span class="s5">&quot;&quot;&quot;Wrap a function for retrying. 
+ 
+        :param f: A function to wraps for retrying. 
+        &quot;&quot;&quot;</span>
+
+        <span class="s3">@</span><span class="s1">functools</span><span class="s3">.</span><span class="s1">wraps</span><span class="s3">(</span><span class="s1">f</span><span class="s3">)</span>
+        <span class="s2">def </span><span class="s1">wrapped_f</span><span class="s3">(*</span><span class="s1">args</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">, **</span><span class="s1">kw</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">) </span><span class="s1">-&gt; t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">:</span>
+            <span class="s2">return </span><span class="s1">self</span><span class="s3">(</span><span class="s1">f</span><span class="s3">, *</span><span class="s1">args</span><span class="s3">, **</span><span class="s1">kw</span><span class="s3">)</span>
+
+        <span class="s2">def </span><span class="s1">retry_with</span><span class="s3">(*</span><span class="s1">args</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">, **</span><span class="s1">kwargs</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">) </span><span class="s1">-&gt; WrappedFn</span><span class="s3">:</span>
+            <span class="s2">return </span><span class="s1">self</span><span class="s3">.</span><span class="s1">copy</span><span class="s3">(*</span><span class="s1">args</span><span class="s3">, **</span><span class="s1">kwargs</span><span class="s3">).</span><span class="s1">wraps</span><span class="s3">(</span><span class="s1">f</span><span class="s3">)</span>
+
+        <span class="s1">wrapped_f</span><span class="s3">.</span><span class="s1">retry </span><span class="s3">= </span><span class="s1">self  </span><span class="s0"># type: ignore[attr-defined]</span>
+        <span class="s1">wrapped_f</span><span class="s3">.</span><span class="s1">retry_with </span><span class="s3">= </span><span class="s1">retry_with  </span><span class="s0"># type: ignore[attr-defined]</span>
+
+        <span class="s2">return </span><span class="s1">wrapped_f  </span><span class="s0"># type: ignore[return-value]</span>
+
+    <span class="s2">def </span><span class="s1">begin</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">statistics</span><span class="s3">.</span><span class="s1">clear</span><span class="s3">()</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">statistics</span><span class="s3">[</span><span class="s4">&quot;start_time&quot;</span><span class="s3">] = </span><span class="s1">time</span><span class="s3">.</span><span class="s1">monotonic</span><span class="s3">()</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">statistics</span><span class="s3">[</span><span class="s4">&quot;attempt_number&quot;</span><span class="s3">] = </span><span class="s6">1</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">statistics</span><span class="s3">[</span><span class="s4">&quot;idle_for&quot;</span><span class="s3">] = </span><span class="s6">0</span>
+
+    <span class="s2">def </span><span class="s1">iter</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">retry_state</span><span class="s3">: </span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">) </span><span class="s1">-&gt; t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s1">DoAttempt</span><span class="s3">, </span><span class="s1">DoSleep</span><span class="s3">, </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">]:  </span><span class="s0"># noqa</span>
+        <span class="s1">fut </span><span class="s3">= </span><span class="s1">retry_state</span><span class="s3">.</span><span class="s1">outcome</span>
+        <span class="s2">if </span><span class="s1">fut </span><span class="s2">is None</span><span class="s3">:</span>
+            <span class="s2">if </span><span class="s1">self</span><span class="s3">.</span><span class="s1">before </span><span class="s2">is not None</span><span class="s3">:</span>
+                <span class="s1">self</span><span class="s3">.</span><span class="s1">before</span><span class="s3">(</span><span class="s1">retry_state</span><span class="s3">)</span>
+            <span class="s2">return </span><span class="s1">DoAttempt</span><span class="s3">()</span>
+
+        <span class="s1">is_explicit_retry </span><span class="s3">= </span><span class="s1">fut</span><span class="s3">.</span><span class="s1">failed </span><span class="s2">and </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">fut</span><span class="s3">.</span><span class="s1">exception</span><span class="s3">(), </span><span class="s1">TryAgain</span><span class="s3">)</span>
+        <span class="s2">if not </span><span class="s3">(</span><span class="s1">is_explicit_retry </span><span class="s2">or </span><span class="s1">self</span><span class="s3">.</span><span class="s1">retry</span><span class="s3">(</span><span class="s1">retry_state</span><span class="s3">)):</span>
+            <span class="s2">return </span><span class="s1">fut</span><span class="s3">.</span><span class="s1">result</span><span class="s3">()</span>
+
+        <span class="s2">if </span><span class="s1">self</span><span class="s3">.</span><span class="s1">after </span><span class="s2">is not None</span><span class="s3">:</span>
+            <span class="s1">self</span><span class="s3">.</span><span class="s1">after</span><span class="s3">(</span><span class="s1">retry_state</span><span class="s3">)</span>
+
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">statistics</span><span class="s3">[</span><span class="s4">&quot;delay_since_first_attempt&quot;</span><span class="s3">] = </span><span class="s1">retry_state</span><span class="s3">.</span><span class="s1">seconds_since_start</span>
+        <span class="s2">if </span><span class="s1">self</span><span class="s3">.</span><span class="s1">stop</span><span class="s3">(</span><span class="s1">retry_state</span><span class="s3">):</span>
+            <span class="s2">if </span><span class="s1">self</span><span class="s3">.</span><span class="s1">retry_error_callback</span><span class="s3">:</span>
+                <span class="s2">return </span><span class="s1">self</span><span class="s3">.</span><span class="s1">retry_error_callback</span><span class="s3">(</span><span class="s1">retry_state</span><span class="s3">)</span>
+            <span class="s1">retry_exc </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">retry_error_cls</span><span class="s3">(</span><span class="s1">fut</span><span class="s3">)</span>
+            <span class="s2">if </span><span class="s1">self</span><span class="s3">.</span><span class="s1">reraise</span><span class="s3">:</span>
+                <span class="s2">raise </span><span class="s1">retry_exc</span><span class="s3">.</span><span class="s1">reraise</span><span class="s3">()</span>
+            <span class="s2">raise </span><span class="s1">retry_exc </span><span class="s2">from </span><span class="s1">fut</span><span class="s3">.</span><span class="s1">exception</span><span class="s3">()</span>
+
+        <span class="s2">if </span><span class="s1">self</span><span class="s3">.</span><span class="s1">wait</span><span class="s3">:</span>
+            <span class="s1">sleep </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">wait</span><span class="s3">(</span><span class="s1">retry_state</span><span class="s3">)</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s1">sleep </span><span class="s3">= </span><span class="s6">0.0</span>
+        <span class="s1">retry_state</span><span class="s3">.</span><span class="s1">next_action </span><span class="s3">= </span><span class="s1">RetryAction</span><span class="s3">(</span><span class="s1">sleep</span><span class="s3">)</span>
+        <span class="s1">retry_state</span><span class="s3">.</span><span class="s1">idle_for </span><span class="s3">+= </span><span class="s1">sleep</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">statistics</span><span class="s3">[</span><span class="s4">&quot;idle_for&quot;</span><span class="s3">] += </span><span class="s1">sleep</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">statistics</span><span class="s3">[</span><span class="s4">&quot;attempt_number&quot;</span><span class="s3">] += </span><span class="s6">1</span>
+
+        <span class="s2">if </span><span class="s1">self</span><span class="s3">.</span><span class="s1">before_sleep </span><span class="s2">is not None</span><span class="s3">:</span>
+            <span class="s1">self</span><span class="s3">.</span><span class="s1">before_sleep</span><span class="s3">(</span><span class="s1">retry_state</span><span class="s3">)</span>
+
+        <span class="s2">return </span><span class="s1">DoSleep</span><span class="s3">(</span><span class="s1">sleep</span><span class="s3">)</span>
+
+    <span class="s2">def </span><span class="s1">__iter__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; t</span><span class="s3">.</span><span class="s1">Generator</span><span class="s3">[</span><span class="s1">AttemptManager</span><span class="s3">, </span><span class="s2">None</span><span class="s3">, </span><span class="s2">None</span><span class="s3">]:</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">begin</span><span class="s3">()</span>
+
+        <span class="s1">retry_state </span><span class="s3">= </span><span class="s1">RetryCallState</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">fn</span><span class="s3">=</span><span class="s2">None</span><span class="s3">, </span><span class="s1">args</span><span class="s3">=(), </span><span class="s1">kwargs</span><span class="s3">={})</span>
+        <span class="s2">while True</span><span class="s3">:</span>
+            <span class="s1">do </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">iter</span><span class="s3">(</span><span class="s1">retry_state</span><span class="s3">=</span><span class="s1">retry_state</span><span class="s3">)</span>
+            <span class="s2">if </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">do</span><span class="s3">, </span><span class="s1">DoAttempt</span><span class="s3">):</span>
+                <span class="s2">yield </span><span class="s1">AttemptManager</span><span class="s3">(</span><span class="s1">retry_state</span><span class="s3">=</span><span class="s1">retry_state</span><span class="s3">)</span>
+            <span class="s2">elif </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">do</span><span class="s3">, </span><span class="s1">DoSleep</span><span class="s3">):</span>
+                <span class="s1">retry_state</span><span class="s3">.</span><span class="s1">prepare_for_next_attempt</span><span class="s3">()</span>
+                <span class="s1">self</span><span class="s3">.</span><span class="s1">sleep</span><span class="s3">(</span><span class="s1">do</span><span class="s3">)</span>
+            <span class="s2">else</span><span class="s3">:</span>
+                <span class="s2">break</span>
+
+    <span class="s3">@</span><span class="s1">abstractmethod</span>
+    <span class="s2">def </span><span class="s1">__call__</span><span class="s3">(</span>
+        <span class="s1">self</span><span class="s3">,</span>
+        <span class="s1">fn</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[..., </span><span class="s1">WrappedFnReturnT</span><span class="s3">],</span>
+        <span class="s3">*</span><span class="s1">args</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">,</span>
+        <span class="s3">**</span><span class="s1">kwargs</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">,</span>
+    <span class="s3">) </span><span class="s1">-&gt; WrappedFnReturnT</span><span class="s3">:</span>
+        <span class="s2">pass</span>
+
+
+<span class="s2">class </span><span class="s1">Retrying</span><span class="s3">(</span><span class="s1">BaseRetrying</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot;Retrying controller.&quot;&quot;&quot;</span>
+
+    <span class="s2">def </span><span class="s1">__call__</span><span class="s3">(</span>
+        <span class="s1">self</span><span class="s3">,</span>
+        <span class="s1">fn</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[..., </span><span class="s1">WrappedFnReturnT</span><span class="s3">],</span>
+        <span class="s3">*</span><span class="s1">args</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">,</span>
+        <span class="s3">**</span><span class="s1">kwargs</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">,</span>
+    <span class="s3">) </span><span class="s1">-&gt; WrappedFnReturnT</span><span class="s3">:</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">begin</span><span class="s3">()</span>
+
+        <span class="s1">retry_state </span><span class="s3">= </span><span class="s1">RetryCallState</span><span class="s3">(</span><span class="s1">retry_object</span><span class="s3">=</span><span class="s1">self</span><span class="s3">, </span><span class="s1">fn</span><span class="s3">=</span><span class="s1">fn</span><span class="s3">, </span><span class="s1">args</span><span class="s3">=</span><span class="s1">args</span><span class="s3">, </span><span class="s1">kwargs</span><span class="s3">=</span><span class="s1">kwargs</span><span class="s3">)</span>
+        <span class="s2">while True</span><span class="s3">:</span>
+            <span class="s1">do </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">iter</span><span class="s3">(</span><span class="s1">retry_state</span><span class="s3">=</span><span class="s1">retry_state</span><span class="s3">)</span>
+            <span class="s2">if </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">do</span><span class="s3">, </span><span class="s1">DoAttempt</span><span class="s3">):</span>
+                <span class="s2">try</span><span class="s3">:</span>
+                    <span class="s1">result </span><span class="s3">= </span><span class="s1">fn</span><span class="s3">(*</span><span class="s1">args</span><span class="s3">, **</span><span class="s1">kwargs</span><span class="s3">)</span>
+                <span class="s2">except </span><span class="s1">BaseException</span><span class="s3">:  </span><span class="s0"># noqa: B902</span>
+                    <span class="s1">retry_state</span><span class="s3">.</span><span class="s1">set_exception</span><span class="s3">(</span><span class="s1">sys</span><span class="s3">.</span><span class="s1">exc_info</span><span class="s3">())  </span><span class="s0"># type: ignore[arg-type]</span>
+                <span class="s2">else</span><span class="s3">:</span>
+                    <span class="s1">retry_state</span><span class="s3">.</span><span class="s1">set_result</span><span class="s3">(</span><span class="s1">result</span><span class="s3">)</span>
+            <span class="s2">elif </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">do</span><span class="s3">, </span><span class="s1">DoSleep</span><span class="s3">):</span>
+                <span class="s1">retry_state</span><span class="s3">.</span><span class="s1">prepare_for_next_attempt</span><span class="s3">()</span>
+                <span class="s1">self</span><span class="s3">.</span><span class="s1">sleep</span><span class="s3">(</span><span class="s1">do</span><span class="s3">)</span>
+            <span class="s2">else</span><span class="s3">:</span>
+                <span class="s2">return </span><span class="s1">do  </span><span class="s0"># type: ignore[no-any-return]</span>
+
+
+<span class="s2">if </span><span class="s1">sys</span><span class="s3">.</span><span class="s1">version_info</span><span class="s3">[</span><span class="s6">1</span><span class="s3">] &gt;= </span><span class="s6">9</span><span class="s3">:</span>
+    <span class="s1">FutureGenericT </span><span class="s3">= </span><span class="s1">futures</span><span class="s3">.</span><span class="s1">Future</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">]</span>
+<span class="s2">else</span><span class="s3">:</span>
+    <span class="s1">FutureGenericT </span><span class="s3">= </span><span class="s1">futures</span><span class="s3">.</span><span class="s1">Future</span>
+
+
+<span class="s2">class </span><span class="s1">Future</span><span class="s3">(</span><span class="s1">FutureGenericT</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot;Encapsulates a (future or past) attempted call to a target function.&quot;&quot;&quot;</span>
+
+    <span class="s2">def </span><span class="s1">__init__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">attempt_number</span><span class="s3">: </span><span class="s1">int</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+        <span class="s1">super</span><span class="s3">().</span><span class="s1">__init__</span><span class="s3">()</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">attempt_number </span><span class="s3">= </span><span class="s1">attempt_number</span>
+
+    <span class="s3">@</span><span class="s1">property</span>
+    <span class="s2">def </span><span class="s1">failed</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; bool</span><span class="s3">:</span>
+        <span class="s5">&quot;&quot;&quot;Return whether a exception is being held in this future.&quot;&quot;&quot;</span>
+        <span class="s2">return </span><span class="s1">self</span><span class="s3">.</span><span class="s1">exception</span><span class="s3">() </span><span class="s2">is not None</span>
+
+    <span class="s3">@</span><span class="s1">classmethod</span>
+    <span class="s2">def </span><span class="s1">construct</span><span class="s3">(</span><span class="s1">cls</span><span class="s3">, </span><span class="s1">attempt_number</span><span class="s3">: </span><span class="s1">int</span><span class="s3">, </span><span class="s1">value</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">, </span><span class="s1">has_exception</span><span class="s3">: </span><span class="s1">bool</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s4">&quot;Future&quot;</span><span class="s3">:</span>
+        <span class="s5">&quot;&quot;&quot;Construct a new Future object.&quot;&quot;&quot;</span>
+        <span class="s1">fut </span><span class="s3">= </span><span class="s1">cls</span><span class="s3">(</span><span class="s1">attempt_number</span><span class="s3">)</span>
+        <span class="s2">if </span><span class="s1">has_exception</span><span class="s3">:</span>
+            <span class="s1">fut</span><span class="s3">.</span><span class="s1">set_exception</span><span class="s3">(</span><span class="s1">value</span><span class="s3">)</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s1">fut</span><span class="s3">.</span><span class="s1">set_result</span><span class="s3">(</span><span class="s1">value</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s1">fut</span>
+
+
+<span class="s2">class </span><span class="s1">RetryCallState</span><span class="s3">:</span>
+    <span class="s5">&quot;&quot;&quot;State related to a single call wrapped with Retrying.&quot;&quot;&quot;</span>
+
+    <span class="s2">def </span><span class="s1">__init__</span><span class="s3">(</span>
+        <span class="s1">self</span><span class="s3">,</span>
+        <span class="s1">retry_object</span><span class="s3">: </span><span class="s1">BaseRetrying</span><span class="s3">,</span>
+        <span class="s1">fn</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">WrappedFn</span><span class="s3">],</span>
+        <span class="s1">args</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">,</span>
+        <span class="s1">kwargs</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">,</span>
+    <span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+        <span class="s0">#: Retry call start timestamp</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">start_time </span><span class="s3">= </span><span class="s1">time</span><span class="s3">.</span><span class="s1">monotonic</span><span class="s3">()</span>
+        <span class="s0">#: Retry manager object</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">retry_object </span><span class="s3">= </span><span class="s1">retry_object</span>
+        <span class="s0">#: Function wrapped by this retry call</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">fn </span><span class="s3">= </span><span class="s1">fn</span>
+        <span class="s0">#: Arguments of the function wrapped by this retry call</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">args </span><span class="s3">= </span><span class="s1">args</span>
+        <span class="s0">#: Keyword arguments of the function wrapped by this retry call</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">kwargs </span><span class="s3">= </span><span class="s1">kwargs</span>
+
+        <span class="s0">#: The number of the current attempt</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">attempt_number</span><span class="s3">: </span><span class="s1">int </span><span class="s3">= </span><span class="s6">1</span>
+        <span class="s0">#: Last outcome (result or exception) produced by the function</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">outcome</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">Future</span><span class="s3">] = </span><span class="s2">None</span>
+        <span class="s0">#: Timestamp of the last outcome</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">outcome_timestamp</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">float</span><span class="s3">] = </span><span class="s2">None</span>
+        <span class="s0">#: Time spent sleeping in retries</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">idle_for</span><span class="s3">: </span><span class="s1">float </span><span class="s3">= </span><span class="s6">0.0</span>
+        <span class="s0">#: Next action as decided by the retry manager</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">next_action</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">RetryAction</span><span class="s3">] = </span><span class="s2">None</span>
+
+    <span class="s3">@</span><span class="s1">property</span>
+    <span class="s2">def </span><span class="s1">seconds_since_start</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">float</span><span class="s3">]:</span>
+        <span class="s2">if </span><span class="s1">self</span><span class="s3">.</span><span class="s1">outcome_timestamp </span><span class="s2">is None</span><span class="s3">:</span>
+            <span class="s2">return None</span>
+        <span class="s2">return </span><span class="s1">self</span><span class="s3">.</span><span class="s1">outcome_timestamp </span><span class="s3">- </span><span class="s1">self</span><span class="s3">.</span><span class="s1">start_time</span>
+
+    <span class="s2">def </span><span class="s1">prepare_for_next_attempt</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">outcome </span><span class="s3">= </span><span class="s2">None</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">outcome_timestamp </span><span class="s3">= </span><span class="s2">None</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">attempt_number </span><span class="s3">+= </span><span class="s6">1</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">next_action </span><span class="s3">= </span><span class="s2">None</span>
+
+    <span class="s2">def </span><span class="s1">set_result</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">val</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+        <span class="s1">ts </span><span class="s3">= </span><span class="s1">time</span><span class="s3">.</span><span class="s1">monotonic</span><span class="s3">()</span>
+        <span class="s1">fut </span><span class="s3">= </span><span class="s1">Future</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">attempt_number</span><span class="s3">)</span>
+        <span class="s1">fut</span><span class="s3">.</span><span class="s1">set_result</span><span class="s3">(</span><span class="s1">val</span><span class="s3">)</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">outcome</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">outcome_timestamp </span><span class="s3">= </span><span class="s1">fut</span><span class="s3">, </span><span class="s1">ts</span>
+
+    <span class="s2">def </span><span class="s1">set_exception</span><span class="s3">(</span>
+        <span class="s1">self</span><span class="s3">, </span><span class="s1">exc_info</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Tuple</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Type</span><span class="s3">[</span><span class="s1">BaseException</span><span class="s3">], </span><span class="s1">BaseException</span><span class="s3">, </span><span class="s4">&quot;types.TracebackType| None&quot;</span><span class="s3">]</span>
+    <span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+        <span class="s1">ts </span><span class="s3">= </span><span class="s1">time</span><span class="s3">.</span><span class="s1">monotonic</span><span class="s3">()</span>
+        <span class="s1">fut </span><span class="s3">= </span><span class="s1">Future</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">attempt_number</span><span class="s3">)</span>
+        <span class="s1">fut</span><span class="s3">.</span><span class="s1">set_exception</span><span class="s3">(</span><span class="s1">exc_info</span><span class="s3">[</span><span class="s6">1</span><span class="s3">])</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">outcome</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">outcome_timestamp </span><span class="s3">= </span><span class="s1">fut</span><span class="s3">, </span><span class="s1">ts</span>
+
+    <span class="s2">def </span><span class="s1">__repr__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; str</span><span class="s3">:</span>
+        <span class="s2">if </span><span class="s1">self</span><span class="s3">.</span><span class="s1">outcome </span><span class="s2">is None</span><span class="s3">:</span>
+            <span class="s1">result </span><span class="s3">= </span><span class="s4">&quot;none yet&quot;</span>
+        <span class="s2">elif </span><span class="s1">self</span><span class="s3">.</span><span class="s1">outcome</span><span class="s3">.</span><span class="s1">failed</span><span class="s3">:</span>
+            <span class="s1">exception </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">outcome</span><span class="s3">.</span><span class="s1">exception</span><span class="s3">()</span>
+            <span class="s1">result </span><span class="s3">= </span><span class="s4">f&quot;failed (</span><span class="s2">{</span><span class="s1">exception</span><span class="s3">.</span><span class="s1">__class__</span><span class="s3">.</span><span class="s1">__name__</span><span class="s2">} {</span><span class="s1">exception</span><span class="s2">}</span><span class="s4">)&quot;</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s1">result </span><span class="s3">= </span><span class="s4">f&quot;returned </span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">outcome</span><span class="s3">.</span><span class="s1">result</span><span class="s3">()</span><span class="s2">}</span><span class="s4">&quot;</span>
+
+        <span class="s1">slept </span><span class="s3">= </span><span class="s1">float</span><span class="s3">(</span><span class="s1">round</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">idle_for</span><span class="s3">, </span><span class="s6">2</span><span class="s3">))</span>
+        <span class="s1">clsname </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">__class__</span><span class="s3">.</span><span class="s1">__name__</span>
+        <span class="s2">return </span><span class="s4">f&quot;&lt;</span><span class="s2">{</span><span class="s1">clsname</span><span class="s2">} {</span><span class="s1">id</span><span class="s3">(</span><span class="s1">self</span><span class="s3">)</span><span class="s2">}</span><span class="s4">: attempt #</span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">attempt_number</span><span class="s2">}</span><span class="s4">; slept for </span><span class="s2">{</span><span class="s1">slept</span><span class="s2">}</span><span class="s4">; last result: </span><span class="s2">{</span><span class="s1">result</span><span class="s2">}</span><span class="s4">&gt;&quot;</span>
+
+
+<span class="s3">@</span><span class="s1">t</span><span class="s3">.</span><span class="s1">overload</span>
+<span class="s2">def </span><span class="s1">retry</span><span class="s3">(</span><span class="s1">func</span><span class="s3">: </span><span class="s1">WrappedFn</span><span class="s3">) </span><span class="s1">-&gt; WrappedFn</span><span class="s3">:</span>
+    <span class="s3">...</span>
+
+
+<span class="s3">@</span><span class="s1">t</span><span class="s3">.</span><span class="s1">overload</span>
+<span class="s2">def </span><span class="s1">retry</span><span class="s3">(</span>
+    <span class="s1">sleep</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Union</span><span class="s3">[</span><span class="s1">int</span><span class="s3">, </span><span class="s1">float</span><span class="s3">]], </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Awaitable</span><span class="s3">[</span><span class="s2">None</span><span class="s3">]]] = </span><span class="s1">sleep</span><span class="s3">,</span>
+    <span class="s1">stop</span><span class="s3">: </span><span class="s4">&quot;StopBaseT&quot; </span><span class="s3">= </span><span class="s1">stop_never</span><span class="s3">,</span>
+    <span class="s1">wait</span><span class="s3">: </span><span class="s4">&quot;WaitBaseT&quot; </span><span class="s3">= </span><span class="s1">wait_none</span><span class="s3">(),</span>
+    <span class="s1">retry</span><span class="s3">: </span><span class="s4">&quot;RetryBaseT&quot; </span><span class="s3">= </span><span class="s1">retry_if_exception_type</span><span class="s3">(),</span>
+    <span class="s1">before</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">], </span><span class="s2">None</span><span class="s3">] = </span><span class="s1">before_nothing</span><span class="s3">,</span>
+    <span class="s1">after</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">], </span><span class="s2">None</span><span class="s3">] = </span><span class="s1">after_nothing</span><span class="s3">,</span>
+    <span class="s1">before_sleep</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">], </span><span class="s2">None</span><span class="s3">]] = </span><span class="s2">None</span><span class="s3">,</span>
+    <span class="s1">reraise</span><span class="s3">: </span><span class="s1">bool </span><span class="s3">= </span><span class="s2">False</span><span class="s3">,</span>
+    <span class="s1">retry_error_cls</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Type</span><span class="s3">[</span><span class="s4">&quot;RetryError&quot;</span><span class="s3">] = </span><span class="s1">RetryError</span><span class="s3">,</span>
+    <span class="s1">retry_error_callback</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s4">&quot;RetryCallState&quot;</span><span class="s3">], </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">]] = </span><span class="s2">None</span><span class="s3">,</span>
+<span class="s3">) </span><span class="s1">-&gt; t</span><span class="s3">.</span><span class="s1">Callable</span><span class="s3">[[</span><span class="s1">WrappedFn</span><span class="s3">], </span><span class="s1">WrappedFn</span><span class="s3">]:</span>
+    <span class="s3">...</span>
+
+
+<span class="s2">def </span><span class="s1">retry</span><span class="s3">(*</span><span class="s1">dargs</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">, **</span><span class="s1">dkw</span><span class="s3">: </span><span class="s1">t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">) </span><span class="s1">-&gt; t</span><span class="s3">.</span><span class="s1">Any</span><span class="s3">:</span>
+    <span class="s5">&quot;&quot;&quot;Wrap a function with a new `Retrying` object. 
+ 
+    :param dargs: positional arguments passed to Retrying object 
+    :param dkw: keyword arguments passed to the Retrying object 
+    &quot;&quot;&quot;</span>
+    <span class="s0"># support both @retry and @retry() as valid syntax</span>
+    <span class="s2">if </span><span class="s1">len</span><span class="s3">(</span><span class="s1">dargs</span><span class="s3">) == </span><span class="s6">1 </span><span class="s2">and </span><span class="s1">callable</span><span class="s3">(</span><span class="s1">dargs</span><span class="s3">[</span><span class="s6">0</span><span class="s3">]):</span>
+        <span class="s2">return </span><span class="s1">retry</span><span class="s3">()(</span><span class="s1">dargs</span><span class="s3">[</span><span class="s6">0</span><span class="s3">])</span>
+    <span class="s2">else</span><span class="s3">:</span>
+
+        <span class="s2">def </span><span class="s1">wrap</span><span class="s3">(</span><span class="s1">f</span><span class="s3">: </span><span class="s1">WrappedFn</span><span class="s3">) </span><span class="s1">-&gt; WrappedFn</span><span class="s3">:</span>
+            <span class="s2">if </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">f</span><span class="s3">, </span><span class="s1">retry_base</span><span class="s3">):</span>
+                <span class="s1">warnings</span><span class="s3">.</span><span class="s1">warn</span><span class="s3">(</span>
+                    <span class="s4">f&quot;Got retry_base instance (</span><span class="s2">{</span><span class="s1">f</span><span class="s3">.</span><span class="s1">__class__</span><span class="s3">.</span><span class="s1">__name__</span><span class="s2">}</span><span class="s4">) as callable argument, &quot;</span>
+                    <span class="s4">f&quot;this will probably hang indefinitely (did you mean retry=</span><span class="s2">{</span><span class="s1">f</span><span class="s3">.</span><span class="s1">__class__</span><span class="s3">.</span><span class="s1">__name__</span><span class="s2">}</span><span class="s4">(...)?)&quot;</span>
+                <span class="s3">)</span>
+            <span class="s1">r</span><span class="s3">: </span><span class="s4">&quot;BaseRetrying&quot;</span>
+            <span class="s2">if </span><span class="s1">iscoroutinefunction</span><span class="s3">(</span><span class="s1">f</span><span class="s3">):</span>
+                <span class="s1">r </span><span class="s3">= </span><span class="s1">AsyncRetrying</span><span class="s3">(*</span><span class="s1">dargs</span><span class="s3">, **</span><span class="s1">dkw</span><span class="s3">)</span>
+            <span class="s2">elif </span><span class="s1">tornado </span><span class="s2">and </span><span class="s1">hasattr</span><span class="s3">(</span><span class="s1">tornado</span><span class="s3">.</span><span class="s1">gen</span><span class="s3">, </span><span class="s4">&quot;is_coroutine_function&quot;</span><span class="s3">) </span><span class="s2">and </span><span class="s1">tornado</span><span class="s3">.</span><span class="s1">gen</span><span class="s3">.</span><span class="s1">is_coroutine_function</span><span class="s3">(</span><span class="s1">f</span><span class="s3">):</span>
+                <span class="s1">r </span><span class="s3">= </span><span class="s1">TornadoRetrying</span><span class="s3">(*</span><span class="s1">dargs</span><span class="s3">, **</span><span class="s1">dkw</span><span class="s3">)</span>
+            <span class="s2">else</span><span class="s3">:</span>
+                <span class="s1">r </span><span class="s3">= </span><span class="s1">Retrying</span><span class="s3">(*</span><span class="s1">dargs</span><span class="s3">, **</span><span class="s1">dkw</span><span class="s3">)</span>
+
+            <span class="s2">return </span><span class="s1">r</span><span class="s3">.</span><span class="s1">wraps</span><span class="s3">(</span><span class="s1">f</span><span class="s3">)</span>
+
+        <span class="s2">return </span><span class="s1">wrap</span>
+
+
+<span class="s2">from </span><span class="s1">pip</span><span class="s3">.</span><span class="s1">_vendor</span><span class="s3">.</span><span class="s1">tenacity</span><span class="s3">.</span><span class="s1">_asyncio </span><span class="s2">import </span><span class="s1">AsyncRetrying  </span><span class="s0"># noqa:E402,I100</span>
+
+<span class="s2">if </span><span class="s1">tornado</span><span class="s3">:</span>
+    <span class="s2">from </span><span class="s1">pip</span><span class="s3">.</span><span class="s1">_vendor</span><span class="s3">.</span><span class="s1">tenacity</span><span class="s3">.</span><span class="s1">tornadoweb </span><span class="s2">import </span><span class="s1">TornadoRetrying</span>
+
+
+<span class="s1">__all__ </span><span class="s3">= [</span>
+    <span class="s4">&quot;retry_base&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry_all&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry_always&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry_any&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry_if_exception&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry_if_exception_type&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry_if_exception_cause_type&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry_if_not_exception_type&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry_if_not_result&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry_if_result&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry_never&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry_unless_exception_type&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry_if_exception_message&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry_if_not_exception_message&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;sleep&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;sleep_using_event&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;stop_after_attempt&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;stop_after_delay&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;stop_all&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;stop_any&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;stop_never&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;stop_when_event_set&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;wait_chain&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;wait_combine&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;wait_exponential&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;wait_fixed&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;wait_incrementing&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;wait_none&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;wait_random&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;wait_random_exponential&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;wait_full_jitter&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;wait_exponential_jitter&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;before_log&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;before_nothing&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;after_log&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;after_nothing&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;before_sleep_log&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;before_sleep_nothing&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;retry&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;WrappedFn&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;TryAgain&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;NO_RESULT&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;DoAttempt&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;DoSleep&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;BaseAction&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;RetryAction&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;RetryError&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;AttemptManager&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;BaseRetrying&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;Retrying&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;Future&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;RetryCallState&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;AsyncRetrying&quot;</span><span class="s3">,</span>
+<span class="s3">]</span>
+</pre>
+</body>
+</html>
